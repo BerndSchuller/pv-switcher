@@ -15,18 +15,18 @@ host = "192.168.178.36"
 #
 # INTERVAL between runs in minutes
 #
-interval = 0.2
+interval = 10
 
 # minimum on time in minutes
-minimum_on_time = 1
+minimum_on_time = 10
 
 # maximum on time in minutes
-maximum_on_time = 5
+maximum_on_time = 30
 
 #
 # OpenWeatherMap API parameters
 # set ow_appid=None to disable
-ow_appid = "5eee7c10832093d69b98f26a7eb6c008"
+ow_appid = "your_api_key"
 ow_lat = "50.766"
 ow_lon = "6.611"
 
@@ -99,9 +99,10 @@ except:
 
 def print_config_info():
     print("Base power threshold: %s" % threshold)
+    print("Min. ON time = %s" % minimum_on_time)
     periods = int(maximum_on_time / minimum_on_time)
-    print("Max. ON time = %s periods of %s minutes each" %(periods, minimum_on_time))
-    print("Inverter address: %s:%s" % (host,port))
+    print("Max. ON time = %s periods of %s minutes each" % (periods, minimum_on_time))
+    print("Inverter address: %s:%s" % (host, port))
     print("OpenWeatherMap API enabled: %s" % str(ow_appid is not None))
 
 
@@ -164,6 +165,9 @@ def get_weather_prediction(over_threshold):
     try:
         with requests.get(url=url) as res:
             json = res.json()
+        code = json['cod']
+        if code!=200:
+            raise Exception("%s %s" % (code, json['message']))
         current = json['current']
         next_hour = None
         current_time = current['dt']
@@ -182,17 +186,17 @@ def get_weather_prediction(over_threshold):
         sundown = int( (current['sunset']-current['dt']) / 60)
         clouds = next_hour['clouds']
         prediction_time = int((next_hour['dt'] - current_time) / 60)
-        # consider it OK if sundown is more than two periods away
+        # consider it OK if sundown is more than two 'on' periods away
         decision = sundown > 2*minimum_on_time
         # and clouds is not 100%
         decision &= clouds < 100
         if debug:
             print("Sundown in %s minutes, expected clouds in %s mins = %s ==> OK?: %s" % (sundown, prediction_time, clouds, decision))
-      
         return decision
     except Exception  as e:
         print("Error getting weather prediction: %s" % str(e))
     return True
+
 
 def engage():
     """ switch relay to active """
@@ -210,12 +214,16 @@ def disengage():
         relay.off()
 
 
-def log(power, threshold):
+def log(power, threshold, ok):
     with open(log_file, "a") as f:
         d = strftime("%Y-%m-%d %H:%M:%S", localtime())
         if debug:
-            print("%s power=%s threshold=%s" % (d, power, threshold))
-        f.write("%s %s %s \n" % (d, power, threshold))
+            print("%s power=%s threshold=%s engage=%s" % (d, power, threshold, ok))
+        if ok:
+            switch = 1
+        else:
+            switch = 0
+        f.write("%s %s %s %s\n" % (d, power, threshold, switch))
 
 
 def setup_signal_handlers():
@@ -242,12 +250,13 @@ if __name__ == '__main__':
         thresh = get_current_threshold()
         power = get_current_power()
         weather_ok = get_weather_prediction(power>thresh)
-        log(power, thresh)
-        if (power > thresh) and weather_ok and counter < periods:
+        ok =  (power > thresh) and weather_ok and counter < periods
+        log(power, thresh, ok)
+        if ok:
             engage()
             sleep(60 * minimum_on_time)
             counter += 1
         else:
             disengage()
             counter = 0
-        sleep(60*interval)
+            sleep(60*interval)
