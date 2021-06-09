@@ -1,0 +1,11 @@
+[Unit]
+Description=PV/Waermepumpen-Steuerung
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/pv-switcher/
+ExecStart=python3 /home/pi/pv-switcher/py/control.py
+
+[Install]
+WantedBy=multi-user.target
+
