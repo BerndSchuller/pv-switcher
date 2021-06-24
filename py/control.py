@@ -18,15 +18,15 @@ host = "192.168.178.36"
 interval = 10
 
 # minimum on time in minutes
-minimum_on_time = 10
+minimum_on_time = 20
 
 # maximum on time in minutes
-maximum_on_time = 30
+maximum_on_time = 40
 
 #
 # OpenWeatherMap API parameters
 # set ow_appid=None to disable
-ow_appid = "your_api_key"
+ow_appid = None # "_your_api_key_"
 ow_lat = "50.766"
 ow_lon = "6.611"
 
@@ -60,14 +60,16 @@ scaling_factors_file = "daily-scaling.txt"
 scaling_factors = []
 
 #
-# print debug output
+# Log file
+#  contains current time, power, threshold
+#  and switching decision
 #
-debug = True
+log_file = "/home/pi/pv-switching-log.txt"
 
 #
-# Log file - will log current power, current threshold
+# print debug output
 #
-log_file = "pv-switching-log.txt"
+debug = False
 
 from modbus import ModbusClient
 from os import environ, stat
