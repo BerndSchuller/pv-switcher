@@ -1,6 +1,6 @@
 #
 # PV Optimizer / Switcher
-# (c) 2021 Bernd Schuller
+# (c) 2021 Bernd Schuller, Michael Otto
 # see LICENSE file for licensing information
 
 #
@@ -246,6 +246,7 @@ if __name__ == '__main__':
     load_scaling_factors()
     print_config_info()
     counter = 0
+    day = strftime("%Y-%m-%d", localtime())
     periods = int(maximum_on_time / minimum_on_time)
 
     while True:
@@ -260,5 +261,9 @@ if __name__ == '__main__':
             counter += 1
         else:
             disengage()
-            counter = 0
             sleep(60*interval)
+            check_day = strftime("%Y-%m-%d", localtime())
+            if day != check_day:
+                counter = 0
+                day = check_day
+
