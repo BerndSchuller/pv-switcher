@@ -7,7 +7,7 @@
 # NORMALIZED SWITCHING THRESHOLD
 # in WATT
 #
-threshold = 1200
+threshold = 1400
 
 # IP Address of the SMA TRIPOWER
 host = "192.168.178.36"
@@ -140,6 +140,8 @@ def get_current_power():
     if regs:
         return regs[1]
     else:
+        print("No valid data from converter. Last error: '%s' Last exception: '%s'" %
+               (tp.last_error_txt(), tp.last_except_txt(verbose=True)))
         return 0
 
 
