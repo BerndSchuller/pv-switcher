@@ -12,6 +12,9 @@ threshold = 1400
 # IP Address of the SMA TRIPOWER
 host = "192.168.178.36"
 
+# IP Address of the power meter of the second installation
+second_host = "192.168.178.46"
+
 #
 # INTERVAL between runs in minutes
 #
@@ -73,6 +76,7 @@ debug = False
 
 from modbus import ModbusClient
 from os import environ, stat
+import re
 from time import localtime, sleep, strftime
 import sys
 
@@ -105,6 +109,7 @@ def print_config_info():
     periods = int(maximum_on_time / minimum_on_time)
     print("Max. ON time = %s periods of %s minutes each" % (periods, minimum_on_time))
     print("Inverter address: %s:%s" % (host, port))
+    print("Balcony power meter address: %s" % second_host)
     print("OpenWeatherMap API enabled: %s" % str(ow_appid is not None))
 
 
@@ -144,6 +149,24 @@ def get_current_power():
                (tp.last_error_txt(), tp.last_except_txt(verbose=True)))
         return 0
 
+def get_second_power():
+    """
+    reads current power of the secondary installation 
+    
+    returns: current power, as an integer, in Watt
+
+    error handling: returns 0 if the value is out of 
+                    range or could not be read
+    """
+    try:
+        url = "http://%s/?m=1" % second_host
+        with requests.get(url=url) as res:
+            match = re.match(".*Leistung{m}(\d+) W.*", res.text)
+            if match is not None:
+                return match.group(1)
+    except:
+        pass
+    return 0
 
 def get_current_threshold():
     """ returns the base threshold scaled by a factor from our scaling file """
@@ -218,16 +241,16 @@ def disengage():
         relay.off()
 
 
-def log(power, threshold, ok):
+def log(power, power1, power2, threshold, ok):
     with open(log_file, "a") as f:
         d = strftime("%Y-%m-%d %H:%M:%S", localtime())
         if debug:
-            print("%s power=%s threshold=%s engage=%s" % (d, power, threshold, ok))
+            print("%s power=%s(%s+%s) threshold=%s engage=%s" % (d, power, power1, power2, threshold, ok))
         if ok:
             switch = 1
         else:
             switch = 0
-        f.write("%s %s %s %s\n" % (d, power, threshold, switch))
+        f.write("%s %s(%s+%s) %s %s\n" % (d, power, power1, power2, threshold, switch))
 
 
 def setup_signal_handlers():
@@ -253,10 +276,12 @@ if __name__ == '__main__':
 
     while True:
         thresh = get_current_threshold()
-        power = get_current_power()
+        power1 = get_current_power()
+        power2 = get_second_power()
+        power = power1 + power2
         weather_ok = get_weather_prediction(power>thresh)
         ok =  (power > thresh) and weather_ok and counter < periods
-        log(power, thresh, ok)
+        log(power, power1, power2, thresh, ok)
         if ok:
             engage()
             sleep(60 * minimum_on_time)
