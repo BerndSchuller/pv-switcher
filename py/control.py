@@ -77,6 +77,7 @@ debug = False
 from modbus import ModbusClient
 from os import environ, stat
 import re
+import requests
 from time import localtime, sleep, strftime
 import sys
 
@@ -86,10 +87,9 @@ import sys
 if ow_appid is not None:
     try:
         import json
-        import requests
     except:
         ow_appid = None
-        print("Requests/JSON cannot be imported - disabling")
+        print("JSON cannot be imported - disabling")
 
 #
 # LED variable controlling the relay
@@ -114,13 +114,13 @@ def print_config_info():
 
 
 def load_scaling_factors():
-    """ 
+    """
     loads scaling factors from file
     """
     global scaling_factors
     scaling_factors = []
     with open(scaling_factors_file, "r") as f:
-        while True: 
+        while True:
             line = f.readline()
             if not line:
                 break
@@ -131,12 +131,12 @@ def load_scaling_factors():
 
 
 def get_current_power():
-    """ 
+    """
     reads the current power from the SMA converter
 
     returns: current power, as an integer, in Watt
 
-    error handling: returns 0 if the value is out of 
+    error handling: returns 0 if the value is out of
                     range or could not be read
     """
     tp = ModbusClient(host=host, port=port, unit_id=unitID,
@@ -151,21 +151,21 @@ def get_current_power():
 
 def get_second_power():
     """
-    reads current power of the secondary installation 
-    
+    reads current power of the secondary installation
+
     returns: current power, as an integer, in Watt
 
-    error handling: returns 0 if the value is out of 
+    error handling: returns 0 if the value is out of
                     range or could not be read
     """
     try:
         url = "http://%s/?m=1" % second_host
-        with requests.get(url=url) as res:
+        with requests.get(url=url, timeout=5) as res:
             match = re.match(".*Leistung{m}(\d+) W.*", res.text)
             if match is not None:
-                return match.group(1)
-    except:
-        pass
+                return int(match.group(1))
+    except Exception as e:
+        print("Error getting second power value: %s" % str(e))
     return 0
 
 def get_current_threshold():
@@ -182,8 +182,8 @@ def get_current_threshold():
 
 
 def get_weather_prediction(over_threshold):
-    """ query OpenWeatherMap API to get an indication 
-        if the current conditions are going to be stable 
+    """ query OpenWeatherMap API to get an indication
+        if the current conditions are going to be stable
         for the next hour or so
     """
     if ow_appid is None:
